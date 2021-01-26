@@ -14,19 +14,17 @@ lenSignal = 9
 [diplus, diminus, adx] = dmi(len, lensig)
 [macdLine, signalLine, histLine] = macd(close, lenShort, lenLong, lenSignal)
 
-onlyTinyMACDhanges = abs(macdLine - macdLine[1])/macdLine < 0.02 and abs(macdLine[1] - macdLine[2])/macdLine < 0.02
-
 // CONDITIONS
 // for LONG
 // MACD: (B=macd, R=signal)
 // - Blue crosses above Red
 // --> B > R and before B < R
-macdCrossesOverSignal = crossover(macdLine, signalLine) // or crossover(macdLine[1], signalLine[2]) // and not onlyTinyMACDhanges
+macdCrossesOverSignal = crossover(macdLine, signalLine)
 macdCrossesUnderSignal = crossunder(macdLine, signalLine)
-macdMightCrossUnder = abs(macdLine - signalLine) / macdLine < 0.07
+macdMightCrossUnder = abs(macdLine - signalLine) < 20
 macdSignalDistanceDecreasing = (macdLine - signalLine) < (macdLine[1] - signalLine[1])
-macdTooCloseToSignal = (abs(macdLine - signalLine) + abs(macdLine[1] - signalLine[1])) / abs(macdLine) < 0.1
-macdAsymptoticToSignal = (abs(macdLine - signalLine) + abs(macdLine[1] - signalLine[1]) + abs(macdLine[2] - signalLine[2]) + abs(macdLine[3] - signalLine[3])) / abs(macdLine) < 0.25
+macdTooCloseToSignal = (abs(macdLine - signalLine) + abs(macdLine[1] - signalLine[1])) < 50
+macdAsymptoticToSignal = (abs(macdLine - signalLine) + abs(macdLine[1] - signalLine[1]) + abs(macdLine[2] - signalLine[2]) + abs(macdLine[3] - signalLine[3])) < 100
 
 // - Blue is above 0
 // --> B > 0
@@ -57,11 +55,11 @@ diPlusAboveADXLevel = diplus > (23 - 5)
 // COMBINED CONDITIONS
 // LONG: (or)
 // * macd#1 && DI+ >= DI-
-longCondition1 = macdCrossesOverSignal and diPlusAboveMinus and not macdTooCloseToSignal and not macdAsymptoticToSignal
+longCondition1 = macdCrossesOverSignal and diPlusAboveMinus and not macdAsymptoticToSignal
 // * macd#1 && DI+ rising && DI- falling
-longCondition2 = macdCrossesOverSignal and diPlusRisesSteeply and not macdTooCloseToSignal and not macdAsymptoticToSignal
+longCondition2 = macdCrossesOverSignal and diPlusRisesSteeply and not macdAsymptoticToSignal
 // * macd#1 && Δ(DI+, DI-) >≈ 0 && DI+ ≳ 20~25
-longCondition3 = macdCrossesOverSignal and diPlusAboveADXLevel and not macdTooCloseToSignal and not macdAsymptoticToSignal
+longCondition3 = macdCrossesOverSignal and diPlusAboveADXLevel and not macdAsymptoticToSignal
 
 // SOLID LONG:
 // * macd#1 && DI+ > DI- && DI+ > 25 && macdB > 0
@@ -69,7 +67,7 @@ strongLongCondition1 = (macdCrossesOverSignal and macdAboveZero) and diPlusAbove
 
 // SHORT:
 // * macd topped out
-macdToppedOut = macdLine <= macdLine[1] and (macdMightCrossUnder) // macdSignalDistanceDecreasing
+macdToppedOut = (macdLine <= macdLine[1] and macdSignalDistanceDecreasing) // or macdMightCrossUnder
 // * DI+ was up, now down && DI- was down, now up
 diPlusTurnsDownwards = diplus < diplus[1] and diplus[1] > diplus[2]
 
@@ -86,11 +84,16 @@ closeShort = false
 
 if goLong
     strategy.entry("Long", strategy.long) //, 100, when=strategy.position_size <= 0)
+    label1 = label.new(x=bar_index, y=na, text="B", yloc=yloc.belowbar, color=color.green, textcolor=color.white, style=label.style_label_up, size=size.normal)
 
 
 if closeLong
-    strategy.close("Long", when=strategy.position_size > 0)
+    strategy.close("Long")
+    label1 = label.new(x=bar_index, y=na, text="S", yloc=yloc.belowbar, color=color.orange, textcolor=color.white, style=label.style_label_up, size=size.normal)
 
 
+// plot(signalLine, color=color.orange)
+// plot(macdLine, color=color.blue)
+// plot(histLine, style=plot.style_stepline, color=color.white)
 plot(goLong ? macdLine : na, color=color.green)
 plot(closeLong ? macdLine : na, color=color.red)
