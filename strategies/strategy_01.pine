@@ -1,0 +1,86 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © herokk
+
+//@version=4
+strategy("Test 01 (MACD + DMI)")
+
+len = input(17, minval=1, title="DI Length")
+lensig = input(14, title="ADX Smoothing", minval=1, maxval=50)
+
+lenLong = 26
+lenShort = 12
+lenSignal = 9
+
+[diplus, diminus, adx] = dmi(len, lensig)
+[macdLine, signalLine, histLine] = macd(close, lenShort, lenLong, lenSignal)
+
+onlyTinyMACDhanges = abs(macdLine - macdLine[1])/macdLine < 0.02 and abs(macdLine[1] - macdLine[2])/macdLine < 0.02
+
+// CONDITIONS
+// for LONG
+// MACD: (B=macd, R=signal)
+// - Blue crosses above Red
+// --> B > R and before B < R
+macdCrossesOverSignal = macdLine >= signalLine and macdLine[1] < signalLine[1] // and not onlyTinyMACDhanges
+macdCrossesUnderSignal = macdLine <= signalLine and macdLine[1] > signalLine[1]
+macdMightCrossUnder = abs(macdLine - signalLine) / macdLine < 0.07
+macdSignalDistanceDecreasing = (macdLine - signalLine) < (macdLine[1] - signalLine[1])
+// - Blue is above 0
+// --> B > 0
+macdAboveZero = macdLine > 0
+// - Blue crosses steeply
+// --> angle(B) > 0 && angle(B) >> angle(R)
+macdDiff = macdLine - macdLine[1]
+signalDiff = signalLine - signalLine[1]
+macdSteep = macdDiff > 0 and macdDiff > signalDiff
+
+
+// DMI: (B=DI+, R=DI-)
+// - Blue is above Red
+// --> B > R
+diPlusAboveMinus = diplus > diminus
+// - Blue goes up steeply
+// --> °> of B  >>  °> R
+// diPlusRisesSteeply = angle(B) > 0 && angle(B) > angle(R)
+diPlusDiff = diplus - diplus[1]
+diMinusDiff = diminus - diminus[1]
+diPlusRisesSteeply = diPlusDiff > 0 and diPlusDiff > diMinusDiff  // ?
+diPlusGoesUp = diPlusDiff > 0
+// - Blue is above 25-line
+// --> B > 23 (-5 buffer)
+diPlusAboveADXLevel = diplus > (23 - 5)
+
+// COMBINED CONDITIONS
+// LONG: (or)
+// * macd#1 && DI+ >= DI-
+longCondition1 = macdCrossesOverSignal and diPlusAboveMinus
+// * macd#1 && DI+ rising && DI- falling
+longCondition2 = macdCrossesOverSignal and diPlusRisesSteeply
+// * macd#1 && Δ(DI+, DI-) >≈ 0 && DI+ ≳ 20~25
+longCondition3 = macdCrossesOverSignal and diPlusAboveADXLevel
+
+// SOLID LONG:
+// * macd#1 && DI+ > DI- && DI+ > 25 && macdB > 0
+strongLongCondition1 = (macdCrossesOverSignal and macdAboveZero) and diPlusAboveMinus and diPlusAboveADXLevel
+
+// SHORT:
+// * macd topped out
+macdToppedOut = macdLine <= macdLine[1] and (macdMightCrossUnder) // macdSignalDistanceDecreasing
+// * DI+ was up, now down && DI- was down, now up
+diPlusTurnsDownwards = diplus < diplus[1] and diplus[1] > diplus[2]
+
+shortCondition1 = diPlusTurnsDownwards and false
+shortCondition2 = macdCrossesUnderSignal and not diPlusGoesUp and false
+shortCondition3 = macdToppedOut
+
+
+if strongLongCondition1 or longCondition1 or longCondition2 or longCondition3
+    strategy.entry("Long", strategy.long)
+
+
+if shortCondition1 or shortCondition2 or shortCondition3
+    strategy.close("Long")
+
+// plot(signalLine, color=color.orange)
+// plot(macdLine, color=color.blue)
+// plot(histLine, style=plot.style_stepline, color=color.white)
