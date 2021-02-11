@@ -1,0 +1,70 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © herokk
+
+//@version=4
+strategy("Test 02 (EMA + SAR + MACD + RSI/BOLL)", default_qty_value=100, default_qty_type=strategy.percent_of_equity, initial_capital=1000)
+
+startDate = input(title="Start Date", type=input.integer, defval=1, minval=1, maxval=31)
+startMonth = input(title="Start Month", type=input.integer, defval=1, minval=1, maxval=12)
+startYear = input(title="Start Year", type=input.integer, defval=2020, minval=2000, maxval=2100)
+isAfterStartDate = (time >= timestamp(syminfo.timezone, startYear, startMonth, startDate, 0, 0))
+
+lenLong = 26
+lenShort = 12
+lenSignal = 9
+
+// Data Sources
+ema8 = ema(close, 8)
+ema20 = ema(close, 20)
+ema50 = ema(close, 50)
+ema200 = ema(close, 200)
+[macdLine, signalLine, histLine] = macd(close, lenShort, lenLong, lenSignal)
+sarLine = sar(0.2, 0.2, 0.2)
+rsiLine = rsi(close, 14)
+// bollinger band
+
+
+// 
+triggerSignal = crossover(ema8, ema50) or (false) // or RVGI crossover // or RVGI green rising & red not rising
+
+longCondition1 =
+     triggerSignal
+     and ema50 > ema200
+     and sarLine < ema8
+     and (signalLine > macdLine or (rising(signalLine, 1) and rising(macdLine, 1)) or rising(signalLine - macdLine, 1))
+     and rsiLine < 80 // and inside bollinger
+
+
+// signalLine slows down, rising less than before
+signal0Rise = signalLine - signalLine[1]
+signal1Rise = signalLine[1] - signalLine[2]
+// closeLongCondition1 = signal0Rise < signal1Rise 
+closeLongCondition1 = ema8 < ema20 // sarLine > ema8
+
+
+
+goLong = longCondition1
+closeLong = closeLongCondition1
+
+goShort = false // strongShortCondition
+closeShort = false // closeShortCondition
+
+if isAfterStartDate and goLong
+    strategy.entry("Long", strategy.long) //, when=strategy.position_size <= 0)
+    // label1 = label.new(x=bar_index, y=na, text="B", yloc=yloc.belowbar, color=color.green, textcolor=color.white, style=label.style_label_up, size=size.normal)
+if isAfterStartDate and closeLong
+    strategy.close("Long")
+    // label1 = label.new(x=bar_index, y=na, text="S", yloc=yloc.belowbar, color=color.orange, textcolor=color.white, style=label.style_label_up, size=size.normal)
+    
+if isAfterStartDate and goShort
+    strategy.entry("Short", strategy.short, when=strategy.position_size <= 0)
+if isAfterStartDate and closeShort
+    strategy.close("Short")
+    
+
+
+// plot(signalLine, color=color.orange)
+// plot(macdLine, color=color.blue)
+// plot(histLine, style=plot.style_stepline, color=color.white)
+plot(goLong ? macdLine : na, color=color.green)
+plot(closeLong ? macdLine : na, color=color.red)
